@@ -25,9 +25,17 @@ public:
 	//---------------------------------------------
 	/// DirectX12の初期化処理 
 	/// 
+	/// \param[in] ( width )
+	/// \param[in] ( height )
+	/// \param[in] ( hWnd )
+	/// 
 	/// \return	none
 	//---------------------------------------------
-	void Init();
+	bool Init(
+		/* [in] */  const int width,
+		/* [in] */  const int height,
+		/* [in] */  const HWND hWnd
+	);
 	
 	//---------------------------------------------
 	/// DirectX12の終了処理 
@@ -49,5 +57,22 @@ public:
 	/// \return	none
 	//---------------------------------------------
 	void Present();
+
+private:
+	//--------------------------------------------------------------------------
+	static const UINT									k_BackBufferNum = 2;
+	Microsoft::WRL::ComPtr<ID3D12Device>				m_device;
+	Microsoft::WRL::ComPtr<ID3D12CommandAllocator>		m_commandAllocator;
+	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList>	m_commandList;
+	Microsoft::WRL::ComPtr<ID3D12CommandQueue>			m_commandQueue;
+	Microsoft::WRL::ComPtr<IDXGISwapChain1>				m_swapChain;
+	//--------------------------------------------------------------------------
+
+	/// <summary>
+	/// ID3D12Device				m_device;			DirectX12 デバイス インタフェース
+	/// ID3D12CommandAllocator		m_commandAllocator;	DirectX12 コマンドアロケータ
+	/// ID3D12GraphicsCommandList	m_commandList;		DirectX12 コマンドリスト
+	/// ID3D12CommandQueue			m_commandQueue;		DirectX12 コマンドキュー
+	/// </summary>
 };
 

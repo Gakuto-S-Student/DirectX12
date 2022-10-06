@@ -19,11 +19,14 @@ int __stdcall WinMain(
 	UNREFERENCED_PARAMETER(nCmdShow);
 
 	Application app(1280, 780, hInstance);
-	app.Init();
-	while (!app.Close())
+	
+	if (app.Init())
 	{
-		app.Update();
-		app.Draw();
+		while (!app.Close())
+		{
+			app.Update();
+			app.Draw();
+		}
 	}
 	app.Uninit();
 

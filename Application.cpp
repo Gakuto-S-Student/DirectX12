@@ -39,9 +39,14 @@ Application::Application(const int width, const int height, HINSTANCE hInstance)
 }
 
 // ‰Šú‰»ˆ—
-void Application::Init()
+bool Application::Init()
 {
-	Graphics::Get()->Init();
+	if (!Graphics::Get()->Init(m_ScreenW, m_ScreenH, m_windowHandle))
+	{
+		return false;
+	}
+
+	return true;
 }
 
 // I—¹ˆ—
