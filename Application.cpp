@@ -4,6 +4,7 @@
 // Copyright (C) 2022 Silicon Studio Co., Ltd. All rights reserved.
 //==============================================================================
 #include "Graphics.h"
+#include "Graphics_Cube.h"
 
 #include "Application.h"
 
@@ -46,12 +47,18 @@ bool Application::Init()
 		return false;
 	}
 
+	m_cube = new GraphicsCube();
+	m_cube->Init();
+
 	return true;
 }
 
 // I—¹ˆ—
 void Application::Uninit()
 {
+	m_cube->Uninit();
+	delete m_cube;
+
 	Graphics::Get()->Uninit();
 }
 
@@ -65,6 +72,7 @@ void Application::Draw()
 {
 	Graphics::Get()->Clear();
 
+	m_cube->Draw();
 
 	Graphics::Get()->Present();
 }

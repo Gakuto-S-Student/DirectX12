@@ -4,9 +4,11 @@
 // Copyright (C) 2022 Silicon Studio Co., Ltd. All rights reserved.
 //==============================================================================
 #include <vector>
+#include "Graphics_Shader.h"
 
 #include "Graphics.h"
 using namespace Microsoft::WRL;
+using namespace DirectX;
 
 
 // インスタンスの取得
@@ -34,6 +36,13 @@ bool Graphics::Init(const int width, const int height, const HWND hWnd)
 		return false;
 	}
 
+	if (!this->CreateGraphicsPipeline())
+	{// グラフィックスパイプラインの生成に失敗
+		return false;
+	}
+
+	this->SetViewport(width, height);
+	this->SetScissorRect(width, height);
 
 	return true;
 }
@@ -54,6 +63,9 @@ void Graphics::Clear()
 		D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_RENDER_TARGET	// 今からレンダーターゲットとして使用
 	);
 
+	// パイプライン設定
+	m_commandList->SetPipelineState(m_pipelineState.Get());
+
 	// レンダーターゲットの指定
 	D3D12_CPU_DESCRIPTOR_HANDLE renderTargetHeapHandle = m_renderTargetViewHeap->GetCPUDescriptorHandleForHeapStart();
 	renderTargetHeapHandle.ptr += index * m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
@@ -61,6 +73,10 @@ void Graphics::Clear()
 
 	float clearColor[]{ 0.0f, 0.5f, 0.0f, 1.0f };
 	m_commandList->ClearRenderTargetView(renderTargetHeapHandle, clearColor, 0, nullptr);	// 画面クリアコマンドの発行
+
+	m_commandList->RSSetViewports(1, &m_viewport);
+	m_commandList->RSSetScissorRects(1, &m_scissorRect);
+	m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
 }
 
 // バッファ切り替え 描画コマンド実行
@@ -88,9 +104,12 @@ void Graphics::Present()
 	if (m_fence->GetCompletedValue() != m_fenceValue)
 	{
 		HANDLE fenceEvent = CreateEvent(nullptr, false, false, nullptr);
-		m_fence->SetEventOnCompletion(m_fenceValue, fenceEvent);
-		WaitForSingleObject(fenceEvent, INFINITE);
-		CloseHandle(fenceEvent);
+		if (fenceEvent)
+		{
+			m_fence->SetEventOnCompletion(m_fenceValue, fenceEvent);
+			WaitForSingleObject(fenceEvent, INFINITE);
+			CloseHandle(fenceEvent);
+		}
 	}
 
 	// コマンド・命令のリセット
@@ -99,6 +118,18 @@ void Graphics::Present()
 
 	// フリップ
 	m_swapChain->Present(1, 0);
+}
+
+// デバイスのアドレスを取得
+ID3D12Device* Graphics::Device()
+{
+	return m_device.Get();
+}
+
+// コマンドリストのアドレスを取得
+ID3D12GraphicsCommandList* Graphics::Context()
+{
+	return m_commandList.Get();
 }
 
 // デバイスとスワップチェインの生成
@@ -255,6 +286,115 @@ bool Graphics::CreateFence()
 	return true;
 }
 
+// パイプラインの生成
+bool Graphics::CreateGraphicsPipeline()
+{
+	std::string vertexShader, pixelShader;
+	GraphicsShader::LoadFile("vertexShader.cso", vertexShader);
+	GraphicsShader::LoadFile("pixelShader.cso", pixelShader);
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC	graphicsPipeline{};
+	graphicsPipeline.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
+
+	D3D12_INPUT_ELEMENT_DESC inputLayout[]
+	{
+		{"POSITION", 0, DXGI_FORMAT::DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION::D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+	};
+
+	// シェーダデータの設定
+	graphicsPipeline.VS.pShaderBytecode	= vertexShader.data();
+	graphicsPipeline.VS.BytecodeLength	= vertexShader.size();
+	graphicsPipeline.PS.pShaderBytecode	= pixelShader.data();
+	graphicsPipeline.PS.BytecodeLength	= pixelShader.size();
+	
+	// 頂点レイアウトの設定
+	graphicsPipeline.InputLayout.pInputElementDescs	= inputLayout;
+	graphicsPipeline.InputLayout.NumElements		= _countof(inputLayout);
+
+	// ブレンドステート設定
+	graphicsPipeline.BlendState.AlphaToCoverageEnable	= false;
+	graphicsPipeline.BlendState.IndependentBlendEnable	= false;
+
+	// レンダーターゲット設定
+	D3D12_RENDER_TARGET_BLEND_DESC renderTargetBlendDesc{};
+	renderTargetBlendDesc.BlendEnable				= false;
+	renderTargetBlendDesc.RenderTargetWriteMask		= D3D12_COLOR_WRITE_ENABLE::D3D12_COLOR_WRITE_ENABLE_ALL;
+	renderTargetBlendDesc.LogicOpEnable				= false;
+	graphicsPipeline.BlendState.RenderTarget[0]		= renderTargetBlendDesc;
+
+	// ラスタライザステートの設定
+	D3D12_RASTERIZER_DESC rasterizerDesc{};
+	rasterizerDesc.MultisampleEnable		= false;
+	rasterizerDesc.CullMode					= D3D12_CULL_MODE::D3D12_CULL_MODE_NONE;
+	rasterizerDesc.FillMode					= D3D12_FILL_MODE::D3D12_FILL_MODE_SOLID;
+	rasterizerDesc.DepthClipEnable			= true;
+	rasterizerDesc.FrontCounterClockwise	= false;
+	rasterizerDesc.DepthBias				= D3D12_DEFAULT_DEPTH_BIAS;
+	rasterizerDesc.DepthBiasClamp			= D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
+	rasterizerDesc.SlopeScaledDepthBias		= D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
+	rasterizerDesc.AntialiasedLineEnable	= false;
+	rasterizerDesc.ForcedSampleCount		= 0;
+	rasterizerDesc.ConservativeRaster		= D3D12_CONSERVATIVE_RASTERIZATION_MODE::D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+	graphicsPipeline.RasterizerState		= rasterizerDesc;
+
+	// 深度ステンシルステートの設定
+	graphicsPipeline.DepthStencilState.DepthEnable		= false;
+	graphicsPipeline.DepthStencilState.StencilEnable	= false;
+
+	// プリミティブ設定
+	graphicsPipeline.IBStripCutValue		= D3D12_INDEX_BUFFER_STRIP_CUT_VALUE::D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
+	graphicsPipeline.PrimitiveTopologyType	= D3D12_PRIMITIVE_TOPOLOGY_TYPE::D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;	// 三角形で構成
+
+	// レンダーターゲット設定
+	graphicsPipeline.NumRenderTargets	= 1;
+	graphicsPipeline.RTVFormats[0]		= DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
+
+	// サンプル
+	graphicsPipeline.SampleDesc.Count	= 1;
+	graphicsPipeline.SampleDesc.Quality	= 0;
+
+	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc{};
+	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAGS::D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+
+	HRESULT ret{};
+	ComPtr<ID3DBlob> rootSignatureBlob{};
+	ret = D3D12SerializeRootSignature(
+		&rootSignatureDesc,
+		D3D_ROOT_SIGNATURE_VERSION::D3D_ROOT_SIGNATURE_VERSION_1_0,
+		rootSignatureBlob.GetAddressOf(),
+		nullptr
+	);
+	if (FAILED(ret))
+	{// ルートシグネチャの生成に失敗
+		return false;
+	}
+
+	ret = m_device->CreateRootSignature(
+		0,
+		rootSignatureBlob->GetBufferPointer(),
+		rootSignatureBlob->GetBufferSize(),
+		__uuidof(ID3D12RootSignature),
+		(void**)m_rootSignature.GetAddressOf()
+	);
+	if (FAILED(ret))
+	{// ルートシグネチャの生成に失敗
+		return false;
+	}
+
+	graphicsPipeline.pRootSignature = m_rootSignature.Get();
+	ret = m_device->CreateGraphicsPipelineState(
+		&graphicsPipeline,
+		__uuidof(ID3D12PipelineState),
+		(void**)m_pipelineState.GetAddressOf()
+	);
+	if (FAILED(ret))
+	{// パイプラインステートの生成
+		return false;
+	}
+
+	return true;
+}
+
 // リソースバリアの設定
 void Graphics::SetResourceBarrier(const UINT index, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after)
 {
@@ -266,4 +406,21 @@ void Graphics::SetResourceBarrier(const UINT index, D3D12_RESOURCE_STATES before
 	barrierDesc.Transition.StateBefore	= before;
 	barrierDesc.Transition.StateAfter	= after;
 	m_commandList->ResourceBarrier(1, &barrierDesc);
+}
+
+// ビューポートの設定
+void Graphics::SetViewport(const int width, const int height)
+{
+	m_viewport.Width		= FLOAT(width);
+	m_viewport.Height		= FLOAT(height);
+	m_viewport.MaxDepth	= D3D12_MAX_DEPTH;
+}
+
+// シザーレクトの設定
+void Graphics::SetScissorRect(const int width, const int height)
+{
+	m_scissorRect.left		= 0;
+	m_scissorRect.top		= 0;
+	m_scissorRect.right		= m_scissorRect.left + width;
+	m_scissorRect.bottom	= m_scissorRect.top + height;
 }

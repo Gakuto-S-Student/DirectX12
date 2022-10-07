@@ -8,6 +8,7 @@
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <wrl/client.h>
+#include <DirectXMath.h>
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -58,6 +59,20 @@ public:
 	//---------------------------------------------
 	void Present();
 
+	//---------------------------------------------
+	/// デバイスポインタの取得 
+	/// 
+	/// \return	ID3D12Device pointer 成功
+	//---------------------------------------------
+	ID3D12Device* Device();
+
+	//---------------------------------------------
+	/// コマンドリストポインタの取得 
+	/// 
+	/// \return	ID3D12GraphicsCommandList pointer 成功
+	//---------------------------------------------
+	ID3D12GraphicsCommandList* Context();
+
 private:
 	//---------------------------------------------
 	/// デバイスとスワップチェインの生成 
@@ -89,6 +104,13 @@ private:
 	bool CreateFence();
 
 	//---------------------------------------------
+	/// パイプラインの生成
+	/// 
+	/// \return	none
+	//---------------------------------------------
+	bool CreateGraphicsPipeline();
+
+	//---------------------------------------------
 	/// リソースバリアの設定
 	/// 
 	/// \param[in] ( index )
@@ -101,6 +123,32 @@ private:
 		/* [in] */  const UINT index,
 		/* [in] */  D3D12_RESOURCE_STATES before,
 		/* [in] */  D3D12_RESOURCE_STATES after
+	);
+
+	//---------------------------------------------
+	/// ビューポートの設定
+	/// 
+	/// \param[in] ( width )
+	/// \param[in] ( height )
+	/// 
+	/// \return	none
+	//---------------------------------------------
+	void SetViewport(
+		/* [in] */  const int width,
+		/* [in] */  const int height
+	);
+
+	//---------------------------------------------
+	/// シザーレクトの設定
+	/// 
+	/// \param[in] ( width )
+	/// \param[in] ( height )
+	/// 
+	/// \return	none
+	//---------------------------------------------
+	void SetScissorRect(
+		/* [in] */  const int width,
+		/* [in] */  const int height
 	);
 
 	//--------------------------------------------------------------------------
@@ -132,12 +180,32 @@ private:
 	
 	//--------------------------------------------------------------------------
 	Microsoft::WRL::ComPtr<ID3D12Fence>		m_fence;
-	UINT									m_fenceValue;
+	UINT									m_fenceValue = 0;
 	//--------------------------------------------------------------------------
 
 	/// <summary>
 	/// ID3D12Fence					m_fence;		DirectX12 フェンス
 	/// UINT						m_fenceValue;	DirectX12 フェンスバリュー			
+	/// </summary>
+
+	//--------------------------------------------------------------------------
+	Microsoft::WRL::ComPtr<ID3D12RootSignature>	m_rootSignature;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState>	m_pipelineState;
+	//--------------------------------------------------------------------------
+
+	/// <summary>
+	///ID3D12RootSignature	m_rootSignature;	// ルートシグネチャ
+	///ID3D12PipelineState	m_pipelineState;	// パイプラインステート
+	/// </summary>
+	
+	//--------------------------------------------------------------------------
+	D3D12_VIEWPORT	m_viewport;
+	D3D12_RECT		m_scissorRect;
+	//--------------------------------------------------------------------------
+
+	/// <summary>
+	/// D3D12_VIEWPORT	m_viewport;
+	/// D3D12_RECT		m_scissorRect;
 	/// </summary>
 };
 
