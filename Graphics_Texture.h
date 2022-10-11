@@ -1,16 +1,13 @@
 //==============================================================================
-// Filename: vertexShader.hlsl
+// Filename: Graphics_Texture.h
 // Description:
 // Copyright (C) 2022 Silicon Studio Co., Ltd. All rights reserved.
 //==============================================================================
-#include "common.hlsli"
 
-PS_INPUT main(VS_INPUT input)
+#pragma once
+class GraphicsTexture
 {
-    PS_INPUT output;
-    
-    output.Position = input.Position;
-    output.TexCoord = input.TexCoord;
-    
-	return output;
-}
+public:
+	static void CreateTexture(ID3D12Resource** textureBuffer, ID3D12DescriptorHeap** descriptorHeap);
+};
+

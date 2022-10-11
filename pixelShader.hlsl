@@ -1,4 +1,12 @@
-float4 main() : SV_TARGET
+//==============================================================================
+// Filename: vertexShader.hlsl
+// Description:
+// Copyright (C) 2022 Silicon Studio Co., Ltd. All rights reserved.
+//==============================================================================
+#include "common.hlsli"
+
+float4 main(PS_INPUT input) : SV_TARGET
 {
-	return float4(1.0f, 1.0f, 1.0f, 1.0f);
+    float4 texColor = g_texture.Sample(g_sampler, input.TexCoord);
+	return texColor;
 }

@@ -17,6 +17,9 @@
     <ClCompile Include="Graphics_Shader.cpp">
       <Filter>Graphics\Shader</Filter>
     </ClCompile>
+    <ClCompile Include="Graphics_Texture.cpp">
+      <Filter>Graphics\Texture</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Application">
@@ -37,6 +40,9 @@
     <Filter Include="Graphics\Shader\hlsl">
       <UniqueIdentifier>{3f05300e-7888-4ec4-a9d5-4189af445874}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Graphics\Texture">
+      <UniqueIdentifier>{0f4767a3-e6f0-45c1-957a-cfa824c7cea0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -54,6 +60,9 @@
     <ClInclude Include="Graphics_Shader.h">
       <Filter>Graphics\Shader</Filter>
     </ClInclude>
+    <ClInclude Include="Graphics_Texture.h">
+      <Filter>Graphics\Texture</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="vertexShader.hlsl">
@@ -62,5 +71,10 @@
     <FxCompile Include="pixelShader.hlsl">
       <Filter>Graphics\Shader\hlsl</Filter>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="common.hlsli">
+      <Filter>Graphics\Shader\hlsl</Filter>
+    </None>
   </ItemGroup>
 </Project>

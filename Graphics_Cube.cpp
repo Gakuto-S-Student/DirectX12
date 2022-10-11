@@ -5,19 +5,27 @@
 //==============================================================================
 #include <algorithm>
 #include "Graphics.h"
+#include "Graphics_Texture.h"
 
 #include "Graphics_Cube.h"
 using namespace DirectX;
+
+struct Vertex3D
+{
+	XMFLOAT3 Position;
+	XMFLOAT2 TexCoord;
+};
+
 
 // 初期化処理
 void GraphicsCube::Init()
 {
 	// 頂点データ
-	XMFLOAT3 vertices[]{
-		{-0.5f, -0.5f, 0.0f},
-		{-0.5f,  0.5f, 0.0f},
-		{ 0.5f, -0.5f, 0.0f},
-		{ 0.5f,  0.5f, 0.0f},
+	Vertex3D vertices[]{
+		{{-0.5f, -0.5f, 0.0f}, {0.0f, 1.0f}},
+		{{-0.5f,  0.5f, 0.0f}, {0.0f, 0.0f}},
+		{{ 0.5f, -0.5f, 0.0f}, {1.0f, 1.0f}},
+		{{ 0.5f,  0.5f, 0.0f}, {1.0f, 0.0f}},
 	};
 
 	D3D12_HEAP_PROPERTIES heapProperties{};
@@ -51,7 +59,7 @@ void GraphicsCube::Init()
 		return;
 	}
 
-	XMFLOAT3* vertexMap;
+	Vertex3D* vertexMap;
 	m_vertexBuffer->Map(0, nullptr, (void**)&vertexMap);
 	std::copy(std::begin(vertices), std::end(vertices), vertexMap);
 	m_vertexBuffer->Unmap(0, nullptr);
@@ -59,6 +67,9 @@ void GraphicsCube::Init()
 	m_vertexBufferView.BufferLocation	= m_vertexBuffer->GetGPUVirtualAddress();
 	m_vertexBufferView.SizeInBytes		= sizeof(vertices);
 	m_vertexBufferView.StrideInBytes	= sizeof(vertices[0]);
+
+	// テクスチャの読み込み
+	GraphicsTexture::CreateTexture(m_textureBuffer.GetAddressOf(), m_textureHeap.GetAddressOf());
 }
 
 // 終了処理
@@ -69,6 +80,9 @@ void GraphicsCube::Uninit()
 // 描画処理
 void GraphicsCube::Draw()
 {
+	Graphics::Get()->Context()->SetDescriptorHeaps(1, m_textureHeap.GetAddressOf());
+	Graphics::Get()->Context()->SetGraphicsRootDescriptorTable(0, m_textureHeap->GetGPUDescriptorHandleForHeapStart());
+
 	Graphics::Get()->Context()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY::D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 	Graphics::Get()->Context()->IASetVertexBuffers(0, 1, &m_vertexBufferView);
 	Graphics::Get()->Context()->DrawInstanced(4, 1, 0, 0);
