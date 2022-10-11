@@ -79,10 +79,20 @@ void Graphics::Clear()
 	// レンダーターゲットの指定
 	D3D12_CPU_DESCRIPTOR_HANDLE renderTargetHeapHandle = m_renderTargetViewHeap->GetCPUDescriptorHandleForHeapStart();
 	renderTargetHeapHandle.ptr += index * m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	m_commandList->OMSetRenderTargets(1, &renderTargetHeapHandle, false, nullptr);
+
+	D3D12_CPU_DESCRIPTOR_HANDLE depthBufferHeapHandle = m_depthBufferHeap->GetCPUDescriptorHandleForHeapStart();
+	m_commandList->OMSetRenderTargets(1, &renderTargetHeapHandle, false, &depthBufferHeapHandle);
 
 	float clearColor[]{ 0.0f, 0.5f, 0.0f, 1.0f };
 	m_commandList->ClearRenderTargetView(renderTargetHeapHandle, clearColor, 0, nullptr);	// 画面クリアコマンドの発行
+	m_commandList->ClearDepthStencilView(													// 深度バッファのクリア
+		m_depthBufferHeap->GetCPUDescriptorHandleForHeapStart(),
+		D3D12_CLEAR_FLAGS::D3D12_CLEAR_FLAG_DEPTH,
+		D3D12_MAX_DEPTH,
+		0,
+		0,
+		nullptr
+	);
 
 	m_commandList->RSSetViewports(1, &m_viewport);
 	m_commandList->RSSetScissorRects(1, &m_scissorRect);
@@ -304,9 +314,62 @@ bool Graphics::CreateDepthBuffer(const int width, const int height)
 {
 	HRESULT ret{};
 	D3D12_RESOURCE_DESC resourceDesc{};
-	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	resourceDesc.Width = width;
+	resourceDesc.Dimension			= D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	resourceDesc.Width				= width;
+	resourceDesc.Height				= height;
+	resourceDesc.DepthOrArraySize	= 1;
+	resourceDesc.Format				= DXGI_FORMAT::DXGI_FORMAT_D32_FLOAT;
+	resourceDesc.SampleDesc.Count	= 1;
+	resourceDesc.Flags				= D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+	resourceDesc.MipLevels			= 1;
+	resourceDesc.Layout				= D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	resourceDesc.Alignment			= 0;
 
+	// ヒーププロパティ
+	D3D12_HEAP_PROPERTIES heapProperties{};
+	heapProperties.Type					= D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_DEFAULT;
+	heapProperties.CPUPageProperty		= D3D12_CPU_PAGE_PROPERTY::D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL::D3D12_MEMORY_POOL_UNKNOWN;
+
+	// クリアバリュー
+	D3D12_CLEAR_VALUE clearValue{};
+	clearValue.DepthStencil.Depth	= D3D12_MAX_DEPTH;
+	clearValue.Format				= DXGI_FORMAT::DXGI_FORMAT_D32_FLOAT;
+
+	ret = m_device->CreateCommittedResource(
+		&heapProperties,
+		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
+		&resourceDesc,
+		D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_DEPTH_WRITE,
+		&clearValue,
+		__uuidof(ID3D12Resource),
+		(void**)m_depthBuffer.GetAddressOf()
+	);
+	if (FAILED(ret))
+	{// 深度バッファの生成に失敗
+		return false;
+	}
+
+	// ヒープの生成処理
+	D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc{};
+	descriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+	descriptorHeapDesc.NumDescriptors = 1;
+	ret = m_device->CreateDescriptorHeap(
+		&descriptorHeapDesc,
+		__uuidof(ID3D12DescriptorHeap),
+		(void**)m_depthBufferHeap.GetAddressOf()
+	);
+	if (FAILED(ret))
+	{// ヒープの生成に失敗
+		return false;
+	}
+
+	// 深度ビューの生成
+	D3D12_DEPTH_STENCIL_VIEW_DESC viewDesc{};
+	viewDesc.Format			= DXGI_FORMAT::DXGI_FORMAT_D32_FLOAT;
+	viewDesc.ViewDimension	= D3D12_DSV_DIMENSION::D3D12_DSV_DIMENSION_TEXTURE2D;
+	viewDesc.Flags			= D3D12_DSV_FLAGS::D3D12_DSV_FLAG_NONE;
+	m_device->CreateDepthStencilView(m_depthBuffer.Get(), &viewDesc, m_depthBufferHeap->GetCPUDescriptorHandleForHeapStart());
 
 	return true;
 }
@@ -366,6 +429,13 @@ bool Graphics::CreateGraphicsPipeline()
 	renderTargetBlendDesc.LogicOpEnable				= false;
 	graphicsPipeline.BlendState.RenderTarget[0]		= renderTargetBlendDesc;
 
+	// 深度ステンシルステートの設定
+	graphicsPipeline.DepthStencilState.DepthEnable		= true;
+	graphicsPipeline.DepthStencilState.StencilEnable	= false;
+	graphicsPipeline.DSVFormat							= DXGI_FORMAT::DXGI_FORMAT_D32_FLOAT;
+	graphicsPipeline.DepthStencilState.DepthFunc		= D3D12_COMPARISON_FUNC::D3D12_COMPARISON_FUNC_LESS;
+	graphicsPipeline.DepthStencilState.DepthWriteMask	= D3D12_DEPTH_WRITE_MASK::D3D12_DEPTH_WRITE_MASK_ALL;
+
 	// ラスタライザステートの設定
 	D3D12_RASTERIZER_DESC rasterizerDesc{};
 	rasterizerDesc.MultisampleEnable		= false;
@@ -380,11 +450,6 @@ bool Graphics::CreateGraphicsPipeline()
 	rasterizerDesc.ForcedSampleCount		= 0;
 	rasterizerDesc.ConservativeRaster		= D3D12_CONSERVATIVE_RASTERIZATION_MODE::D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
 	graphicsPipeline.RasterizerState		= rasterizerDesc;
-
-	// 深度ステンシルステートの設定
-	graphicsPipeline.DepthStencilState.DepthEnable		= false;
-	graphicsPipeline.DepthStencilState.StencilEnable	= false;
-
 
 	// プリミティブ設定
 	graphicsPipeline.IBStripCutValue		= D3D12_INDEX_BUFFER_STRIP_CUT_VALUE::D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;

@@ -206,6 +206,16 @@ private:
 	/// </summary>
 	
 	//--------------------------------------------------------------------------
+	Microsoft::WRL::ComPtr<ID3D12Resource>			m_depthBuffer;
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>	m_depthBufferHeap;
+	//--------------------------------------------------------------------------
+
+	/// <summary>
+	/// ID3D12Resource			m_depthBuffer;		DirectX12 深度バッファ
+	/// ID3D12DescriptorHeap	m_depthBufferHeap;	DirectX12 深度バッファ用ヒープ
+	/// </summary>
+
+	//--------------------------------------------------------------------------
 	Microsoft::WRL::ComPtr<ID3D12Fence>		m_fence;
 	UINT									m_fenceValue = 0;
 	//--------------------------------------------------------------------------
@@ -231,8 +241,8 @@ private:
 	//--------------------------------------------------------------------------
 
 	/// <summary>
-	///ID3D12RootSignature	m_rootSignature;	// ルートシグネチャ
-	///ID3D12PipelineState	m_pipelineState;	// パイプラインステート
+	///ID3D12Resource		m_worldViewProjectionBuffer;		// コンスタントバッファ
+	///ID3D12DescriptorHeap	m_worldViewProjectionBufferHeap;	// コンスタントバッファヒープ
 	/// </summary>
 	
 	//--------------------------------------------------------------------------
