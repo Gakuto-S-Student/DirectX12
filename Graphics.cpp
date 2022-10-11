@@ -31,6 +31,11 @@ bool Graphics::Init(const int width, const int height, const HWND hWnd)
 		return false;
 	}
 
+	if (!this->CreateDepthBuffer(width, height))
+	{// 深度バッファの生成に失敗
+		return false;
+	}
+
 	if (!this->CreateFence())
 	{// フェンスの生成に失敗
 		return false;
@@ -38,6 +43,11 @@ bool Graphics::Init(const int width, const int height, const HWND hWnd)
 
 	if (!this->CreateGraphicsPipeline())
 	{// グラフィックスパイプラインの生成に失敗
+		return false;
+	}
+
+	if (!this->CreateConstantBuffers())
+	{// 定数バッファの生成に失敗
 		return false;
 	}
 
@@ -130,6 +140,27 @@ ID3D12Device* Graphics::Device()
 ID3D12GraphicsCommandList* Graphics::Context()
 {
 	return m_commandList.Get();
+}
+
+// 定数バッファの値更新
+void Graphics::SetWorldViewProjection(const DirectX::XMMATRIX wvp)
+{
+	HRESULT ret{};
+
+	XMMATRIX* mapMatrix;
+	ret = m_worldViewProjectionBuffer->Map(0, nullptr, (void**)&mapMatrix);
+	if (FAILED(ret))
+	{
+		return;
+	}
+
+	// データ更新
+	*mapMatrix = wvp;
+
+	m_worldViewProjectionBuffer->Unmap(0, nullptr);
+
+	m_commandList->SetDescriptorHeaps(1, m_worldViewProjectionBufferHeap.GetAddressOf());
+	m_commandList->SetGraphicsRootDescriptorTable(1, m_worldViewProjectionBufferHeap->GetGPUDescriptorHandleForHeapStart());
 }
 
 // デバイスとスワップチェインの生成
@@ -268,6 +299,18 @@ bool Graphics::CreateRenderTargetView()
 	return true;
 }
 
+// 深度バッファの生成
+bool Graphics::CreateDepthBuffer(const int width, const int height)
+{
+	HRESULT ret{};
+	D3D12_RESOURCE_DESC resourceDesc{};
+	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	resourceDesc.Width = width;
+
+
+	return true;
+}
+
 // フェンスの生成
 bool Graphics::CreateFence()
 {
@@ -326,7 +369,7 @@ bool Graphics::CreateGraphicsPipeline()
 	// ラスタライザステートの設定
 	D3D12_RASTERIZER_DESC rasterizerDesc{};
 	rasterizerDesc.MultisampleEnable		= false;
-	rasterizerDesc.CullMode					= D3D12_CULL_MODE::D3D12_CULL_MODE_NONE;
+	rasterizerDesc.CullMode					= D3D12_CULL_MODE::D3D12_CULL_MODE_BACK;
 	rasterizerDesc.FillMode					= D3D12_FILL_MODE::D3D12_FILL_MODE_SOLID;
 	rasterizerDesc.DepthClipEnable			= true;
 	rasterizerDesc.FrontCounterClockwise	= false;
@@ -341,6 +384,7 @@ bool Graphics::CreateGraphicsPipeline()
 	// 深度ステンシルステートの設定
 	graphicsPipeline.DepthStencilState.DepthEnable		= false;
 	graphicsPipeline.DepthStencilState.StencilEnable	= false;
+
 
 	// プリミティブ設定
 	graphicsPipeline.IBStripCutValue		= D3D12_INDEX_BUFFER_STRIP_CUT_VALUE::D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
@@ -357,20 +401,32 @@ bool Graphics::CreateGraphicsPipeline()
 	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc{};
 	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAGS::D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
-	D3D12_DESCRIPTOR_RANGE descriptorRange{};
-	descriptorRange.NumDescriptors						= 1;	// テクスチャ一つ
-	descriptorRange.RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE::D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	descriptorRange.BaseShaderRegister					= 0;	// 0番スロット
-	descriptorRange.OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	D3D12_DESCRIPTOR_RANGE descriptorRange[2]{};
+	// テクスチャのレンジ設定
+	descriptorRange[0].NumDescriptors						= 1;	// テクスチャ一つ
+	descriptorRange[0].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE::D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	descriptorRange[0].BaseShaderRegister					= 0;	// 0番スロット
+	descriptorRange[0].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-	D3D12_ROOT_PARAMETER rootParameter{};
-	rootParameter.ParameterType							= D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParameter.DescriptorTable.pDescriptorRanges		= &descriptorRange;
-	rootParameter.DescriptorTable.NumDescriptorRanges	= 1;
-	rootParameter.ShaderVisibility						= D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_PIXEL;
+	// 定数レンジ設定
+	descriptorRange[1].NumDescriptors						= 1;	// 定数バッファ一つ
+	descriptorRange[1].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE::D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+	descriptorRange[1].BaseShaderRegister					= 0;	// 0番スロット
+	descriptorRange[1].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-	rootSignatureDesc.pParameters	= &rootParameter;
-	rootSignatureDesc.NumParameters = 1;
+	D3D12_ROOT_PARAMETER rootParameter[2]{};
+	rootParameter[0].ParameterType							= D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParameter[0].DescriptorTable.pDescriptorRanges		= &descriptorRange[0];
+	rootParameter[0].DescriptorTable.NumDescriptorRanges	= 1;
+	rootParameter[0].ShaderVisibility						= D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_PIXEL;
+
+	rootParameter[1].ParameterType							= D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParameter[1].DescriptorTable.pDescriptorRanges		= &descriptorRange[1];
+	rootParameter[1].DescriptorTable.NumDescriptorRanges	= 1;
+	rootParameter[1].ShaderVisibility						= D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_VERTEX;
+
+	rootSignatureDesc.pParameters	= rootParameter;
+	rootSignatureDesc.NumParameters = 2;
 
 	// サンプラーの設定
 	D3D12_STATIC_SAMPLER_DESC samplerDesc{};
@@ -385,7 +441,7 @@ bool Graphics::CreateGraphicsPipeline()
 	samplerDesc.ShaderVisibility	= D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_PIXEL;
 
 	rootSignatureDesc.NumStaticSamplers = 1;
-	rootSignatureDesc.pStaticSamplers = &samplerDesc;
+	rootSignatureDesc.pStaticSamplers	= &samplerDesc;
 
 
 	HRESULT ret{};
@@ -423,6 +479,65 @@ bool Graphics::CreateGraphicsPipeline()
 	{// パイプラインステートの生成
 		return false;
 	}
+
+	return true;
+}
+
+// 定数バッファの生成処理
+bool Graphics::CreateConstantBuffers()
+{
+	D3D12_HEAP_PROPERTIES heapProperties{};
+	heapProperties.Type					= D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_UPLOAD;					// mapができる設定
+	heapProperties.CPUPageProperty		= D3D12_CPU_PAGE_PROPERTY::D3D12_CPU_PAGE_PROPERTY_UNKNOWN; 
+	heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL::D3D12_MEMORY_POOL_UNKNOWN;				
+
+	D3D12_RESOURCE_DESC resourceDesc{};
+	resourceDesc.Dimension			= D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_BUFFER;
+	resourceDesc.Width				= (sizeof(XMMATRIX) + 0xff) & ~0xff;
+	resourceDesc.Height				= 1;
+	resourceDesc.DepthOrArraySize	= 1;
+	resourceDesc.MipLevels			= 1;
+	resourceDesc.Format				= DXGI_FORMAT::DXGI_FORMAT_UNKNOWN;
+	resourceDesc.SampleDesc.Count	= 1;
+	resourceDesc.Flags				= D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_NONE;
+	resourceDesc.Layout				= D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+	HRESULT ret{};
+	ret = m_device->CreateCommittedResource(
+		&heapProperties,
+		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
+		&resourceDesc,
+		D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		__uuidof(ID3D12Resource),
+		(void**)m_worldViewProjectionBuffer.GetAddressOf()
+	);
+	if (FAILED(ret))
+	{// 定数バッファの生成に失敗
+		return false;
+	}
+
+	// ヒープを作成
+	D3D12_DESCRIPTOR_HEAP_DESC heapDesc{};
+	heapDesc.Type			= D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	heapDesc.Flags			= D3D12_DESCRIPTOR_HEAP_FLAGS::D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	heapDesc.NodeMask		= 0;
+	heapDesc.NumDescriptors = 1;
+	ret = m_device->CreateDescriptorHeap(
+		&heapDesc,
+		__uuidof(ID3D12DescriptorHeap),
+		(void**)m_worldViewProjectionBufferHeap.GetAddressOf()
+	);
+	if (FAILED(ret))
+	{// ヒープの生成に失敗
+		return false;
+	}
+
+	// 定数バッファのビュー作成
+	D3D12_CONSTANT_BUFFER_VIEW_DESC viewDesc{};
+	viewDesc.BufferLocation = m_worldViewProjectionBuffer->GetGPUVirtualAddress();
+	viewDesc.SizeInBytes	= UINT(m_worldViewProjectionBuffer->GetDesc().Width);
+	m_device->CreateConstantBufferView(&viewDesc, m_worldViewProjectionBufferHeap->GetCPUDescriptorHandleForHeapStart());
 
 	return true;
 }

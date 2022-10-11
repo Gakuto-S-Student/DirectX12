@@ -73,6 +73,13 @@ public:
 	//---------------------------------------------
 	ID3D12GraphicsCommandList* Context();
 
+	//---------------------------------------------
+	/// モデルビュー行列を設定する
+	/// 
+	/// \return	none
+	//---------------------------------------------
+	void SetWorldViewProjection(const DirectX::XMMATRIX wvp);
+
 private:
 	//---------------------------------------------
 	/// デバイスとスワップチェインの生成 
@@ -92,23 +99,43 @@ private:
 	//---------------------------------------------
 	/// レンダーターゲットの生成
 	/// 
-	/// \return	none
+	/// \return	true 成功
 	//---------------------------------------------
 	bool CreateRenderTargetView();
 
 	//---------------------------------------------
+	/// 深度バッファの生成
+	///
+	/// \param[in] ( width )
+	/// \param[in] ( height )
+	///  
+	/// \return	true 成功
+	//---------------------------------------------
+	bool CreateDepthBuffer(
+		/* [in] */  const int width,
+		/* [in] */  const int height
+	);
+
+	//---------------------------------------------
 	/// フェンスの生成
 	/// 
-	/// \return	none
+	/// \return	true 成功
 	//---------------------------------------------
 	bool CreateFence();
 
 	//---------------------------------------------
 	/// パイプラインの生成
 	/// 
-	/// \return	none
+	/// \return	true 成功
 	//---------------------------------------------
 	bool CreateGraphicsPipeline();
+
+	//---------------------------------------------
+	/// 定数バッファの生成
+	/// 
+	/// \return	true 成功
+	//---------------------------------------------
+	bool CreateConstantBuffers();
 
 	//---------------------------------------------
 	/// リソースバリアの設定
@@ -199,8 +226,18 @@ private:
 	/// </summary>
 	
 	//--------------------------------------------------------------------------
-	D3D12_VIEWPORT	m_viewport;
-	D3D12_RECT		m_scissorRect;
+	Microsoft::WRL::ComPtr<ID3D12Resource>			m_worldViewProjectionBuffer;
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>	m_worldViewProjectionBufferHeap;
+	//--------------------------------------------------------------------------
+
+	/// <summary>
+	///ID3D12RootSignature	m_rootSignature;	// ルートシグネチャ
+	///ID3D12PipelineState	m_pipelineState;	// パイプラインステート
+	/// </summary>
+	
+	//--------------------------------------------------------------------------
+	D3D12_VIEWPORT	m_viewport{};
+	D3D12_RECT		m_scissorRect{};
 	//--------------------------------------------------------------------------
 
 	/// <summary>

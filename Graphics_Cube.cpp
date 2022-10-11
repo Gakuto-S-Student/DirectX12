@@ -16,17 +16,63 @@ struct Vertex3D
 	XMFLOAT2 TexCoord;
 };
 
+// モデルデータ
+const Vertex3D g_cubeMeta[]
+{
+	// 頂点座標              // uv座標
+	{{ 1.0f,  1.0f,  1.0f}, {1.0f, 0.0f}},
+	{{-1.0f,  1.0f, -1.0f}, {0.0f, 1.0f}},
+	{{-1.0f,  1.0f,  1.0f}, {0.0f, 0.0f}},
+
+	{{-1.0f,  1.0f, -1.0f}, {0.0f, 0.0f}},
+	{{ 1.0f, -1.0f, -1.0f}, {1.0f, 1.0f}},
+	{{-1.0f, -1.0f, -1.0f}, {0.0f, 1.0f}},
+
+	{{ 1.0f,  1.0f, -1.0f}, {1.0f, 0.0f}},
+	{{ 1.0f, -1.0f,  1.0f}, {0.0f, 1.0f}},
+	{{ 1.0f, -1.0f, -1.0f}, {1.0f, 1.0f}},
+
+	{{-1.0f, -1.0f,  1.0f}, {0.0f, 1.0f}},
+	{{ 1.0f, -1.0f, -1.0f}, {1.0f, 0.0f}},
+	{{ 1.0f, -1.0f,  1.0f}, {0.0f, 0.0f}},
+
+	{{-1.0f,  1.0f,  1.0f}, {1.0f, 0.0f}},
+	{{-1.0f, -1.0f, -1.0f}, {0.0f, 1.0f}},
+	{{-1.0f, -1.0f,  1.0f}, {0.0f, 0.0f}},
+
+	{{ 1.0f,  1.0f,  1.0f}, {0.0f, 1.0f}},
+	{{-1.0f, -1.0f,  1.0f}, {1.0f, 0.0f}},
+	{{ 1.0f, -1.0f,  1.0f}, {0.0f, 0.0f}},
+
+	{{ 1.0f,  1.0f,  1.0f}, {1.0f, 0.0f}},
+	{{ 1.0f,  1.0f, -1.0f}, {1.0f, 1.0f}},
+	{{-1.0f,  1.0f, -1.0f}, {0.0f, 1.0f}},
+
+	{{-1.0f,  1.0f, -1.0f}, {0.0f, 0.0f}},
+	{{ 1.0f,  1.0f, -1.0f}, {1.0f, 0.0f}},
+	{{ 1.0f, -1.0f, -1.0f}, {1.0f, 1.0f}},
+
+	{{ 1.0f,  1.0f, -1.0f}, {1.0f, 0.0f}},
+	{{ 1.0f,  1.0f,  1.0f}, {0.0f, 0.0f}},
+	{{ 1.0f, -1.0f,  1.0f}, {0.0f, 1.0f}},
+
+	{{-1.0f, -1.0f,  1.0f}, {0.0f, 1.0f}},
+	{{-1.0f, -1.0f, -1.0f}, {1.0f, 1.0f}},
+	{{ 1.0f, -1.0f, -1.0f}, {1.0f, 0.0f}},
+
+	{{-1.0f,  1.0f,  1.0f}, {1.0f, 0.0f}},
+	{{-1.0f,  1.0f, -1.0f}, {1.0f, 1.0f}},
+	{{-1.0f, -1.0f, -1.0f}, {0.0f, 1.0f}},
+
+	{{ 1.0f,  1.0f,  1.0f}, {0.0f, 1.0f}},
+	{{-1.0f,  1.0f,  1.0f}, {1.0f, 1.0f}},
+	{{-1.0f, -1.0f,  1.0f}, {1.0f, 0.0f}},
+};
 
 // 初期化処理
 void GraphicsCube::Init()
 {
-	// 頂点データ
-	Vertex3D vertices[]{
-		{{-0.5f, -0.5f, 0.0f}, {0.0f, 1.0f}},
-		{{-0.5f,  0.5f, 0.0f}, {0.0f, 0.0f}},
-		{{ 0.5f, -0.5f, 0.0f}, {1.0f, 1.0f}},
-		{{ 0.5f,  0.5f, 0.0f}, {1.0f, 0.0f}},
-	};
+	
 
 	D3D12_HEAP_PROPERTIES heapProperties{};
 	heapProperties.Type					= D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_UPLOAD;					// mapができる設定
@@ -35,7 +81,7 @@ void GraphicsCube::Init()
 
 	D3D12_RESOURCE_DESC resourceDesc{};
 	resourceDesc.Dimension			= D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_BUFFER;
-	resourceDesc.Width				= sizeof(vertices);
+	resourceDesc.Width				= sizeof(g_cubeMeta);
 	resourceDesc.Height				= 1;
 	resourceDesc.DepthOrArraySize	= 1;
 	resourceDesc.MipLevels			= 1;
@@ -61,12 +107,12 @@ void GraphicsCube::Init()
 
 	Vertex3D* vertexMap;
 	m_vertexBuffer->Map(0, nullptr, (void**)&vertexMap);
-	std::copy(std::begin(vertices), std::end(vertices), vertexMap);
+	std::copy(std::begin(g_cubeMeta), std::end(g_cubeMeta), vertexMap);
 	m_vertexBuffer->Unmap(0, nullptr);
 
 	m_vertexBufferView.BufferLocation	= m_vertexBuffer->GetGPUVirtualAddress();
-	m_vertexBufferView.SizeInBytes		= sizeof(vertices);
-	m_vertexBufferView.StrideInBytes	= sizeof(vertices[0]);
+	m_vertexBufferView.SizeInBytes		= sizeof(g_cubeMeta);
+	m_vertexBufferView.StrideInBytes	= sizeof(g_cubeMeta[0]);
 
 	// テクスチャの読み込み
 	GraphicsTexture::CreateTexture(m_textureBuffer.GetAddressOf(), m_textureHeap.GetAddressOf());
@@ -80,10 +126,29 @@ void GraphicsCube::Uninit()
 // 描画処理
 void GraphicsCube::Draw()
 {
+	static float angle;
+	angle += 0.01f;
+
 	Graphics::Get()->Context()->SetDescriptorHeaps(1, m_textureHeap.GetAddressOf());
 	Graphics::Get()->Context()->SetGraphicsRootDescriptorTable(0, m_textureHeap->GetGPUDescriptorHandleForHeapStart());
 
-	Graphics::Get()->Context()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY::D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	XMMATRIX world = XMMatrixRotationY(angle);
+
+	XMFLOAT3 eye(0, 5, -5);
+	XMFLOAT3 target(0, 0, 0);
+	XMFLOAT3 up(0, 1, 0);
+
+	XMMATRIX view = XMMatrixLookAtLH(XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
+	XMMATRIX projection = XMMatrixPerspectiveFovLH(
+		XM_PIDIV2,
+		1280 / 780,
+		0.1f,
+		100.0f
+	);
+
+	Graphics::Get()->SetWorldViewProjection(world * view * projection);
+
+	Graphics::Get()->Context()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY::D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	Graphics::Get()->Context()->IASetVertexBuffers(0, 1, &m_vertexBufferView);
-	Graphics::Get()->Context()->DrawInstanced(4, 1, 0, 0);
+	Graphics::Get()->Context()->DrawInstanced(ARRAYSIZE(g_cubeMeta), 1, 0, 0);
 }

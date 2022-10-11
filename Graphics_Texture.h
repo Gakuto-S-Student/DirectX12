@@ -8,6 +8,14 @@
 class GraphicsTexture
 {
 public:
+	//---------------------------------------------
+	/// テクスチャデータの生成
+	///
+	/// \param[out] ( textureBuffer )
+	/// \param[out] ( descriptorHeap )
+	/// 
+	/// \return none
+	//---------------------------------------------
 	static void CreateTexture(ID3D12Resource** textureBuffer, ID3D12DescriptorHeap** descriptorHeap);
 };
 
