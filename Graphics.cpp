@@ -5,6 +5,7 @@
 //==============================================================================
 #include <vector>
 #include "Graphics_Shader.h"
+#include "Graphics_Camera.h"
 
 #include "Graphics.h"
 using namespace Microsoft::WRL;
@@ -14,14 +15,7 @@ using namespace DirectX;
 #define WORLD_MATRIX_INDEX		0	// ワールド行列設定用インデックス
 #define VIEW_MATRIX_INDEX		1	// カメラ行列設定用インデックス
 #define PROJECTION_MATRIX_INDEX 2	// 射影行列設定用インデックス
-
-// 定数バッファの構造体
-struct ConstantBuffer
-{
-	XMMATRIX worldMatrix;
-	XMMATRIX viewMatrix;
-	XMMATRIX projectionMatrix;
-};
+#define TEXTURE_INDEX			3	// Shaderにテクスチャを転送するためのインデックス
 
 
 // インスタンスの取得
@@ -59,8 +53,8 @@ bool Graphics::Init(const int width, const int height, const HWND hWnd)
 		return false;
 	}
 
-	if (!this->CreateConstantBuffers())
-	{// 定数バッファの生成に失敗
+	if (!GraphicsCamera::Get()->Init())
+	{// カメラの生成処理に失敗
 		return false;
 	}
 
@@ -73,6 +67,7 @@ bool Graphics::Init(const int width, const int height, const HWND hWnd)
 // 終了処理
 void Graphics::Uninit()
 {
+	GraphicsCamera::Get()->Uninit();
 }
 
 // 画面クリア
@@ -165,22 +160,25 @@ ID3D12GraphicsCommandList* Graphics::Context()
 	return m_commandList.Get();
 }
 
-// 定数バッファの値更新(World)
-void Graphics::SetWorldMatrix(const DirectX::XMMATRIX world)
+// 定数バッファの更新
+void Graphics::SetWorldMatrix(ID3D12Resource* world)
 {
-	this->UpdateConstantBufferResouce(WORLD_MATRIX_INDEX, world);
+	m_commandList->SetGraphicsRootConstantBufferView(WORLD_MATRIX_INDEX, world->GetGPUVirtualAddress());
+}
+void Graphics::SetViewMatrix(ID3D12Resource* view)
+{
+	m_commandList->SetGraphicsRootConstantBufferView(VIEW_MATRIX_INDEX, view->GetGPUVirtualAddress());
+}
+void Graphics::SetProjectionMatrix(ID3D12Resource* projection)
+{
+	m_commandList->SetGraphicsRootConstantBufferView(PROJECTION_MATRIX_INDEX, projection->GetGPUVirtualAddress());
 }
 
-// 定数バッファの値更新(View)
-void Graphics::SetViewMatrix(const DirectX::XMMATRIX view)
+// テクスチャリソースの設定
+void Graphics::SetTexture(ID3D12DescriptorHeap* textureHeap)
 {
-	this->UpdateConstantBufferResouce(VIEW_MATRIX_INDEX, view);
-}
-
-// 定数バッファの値更新(Projection)
-void Graphics::SetProjectionMatrix(const DirectX::XMMATRIX proj)
-{
-	this->UpdateConstantBufferResouce(PROJECTION_MATRIX_INDEX, proj);
+	m_commandList->SetDescriptorHeaps(1, &textureHeap);
+	m_commandList->SetGraphicsRootDescriptorTable(TEXTURE_INDEX, textureHeap->GetGPUDescriptorHandleForHeapStart());
 }
 
 // デバイスとスワップチェインの生成
@@ -476,32 +474,36 @@ bool Graphics::CreateGraphicsPipeline()
 	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc{};
 	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAGS::D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
-	D3D12_DESCRIPTOR_RANGE descriptorRange[2]{};
+	D3D12_DESCRIPTOR_RANGE descriptorRange{};
 	// テクスチャのレンジ設定
-	descriptorRange[0].NumDescriptors						= 1;	// テクスチャ一つ
-	descriptorRange[0].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE::D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	descriptorRange[0].BaseShaderRegister					= 0;	// 0番スロット
-	descriptorRange[0].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	descriptorRange.NumDescriptors						= 1;	// テクスチャ一つ
+	descriptorRange.RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE::D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	descriptorRange.BaseShaderRegister					= 0;	// 0番スロット
+	descriptorRange.OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-	// 定数レンジ設定
-	descriptorRange[1].NumDescriptors						= 1;	// 定数バッファ一つ
-	descriptorRange[1].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE::D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-	descriptorRange[1].BaseShaderRegister					= 0;	// 0番スロット
-	descriptorRange[1].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	D3D12_ROOT_PARAMETER rootParameter[4]{};
+	rootParameter[0].ParameterType							= D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_CBV;
+	rootParameter[0].ShaderVisibility						= D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_VERTEX;
+	rootParameter[0].Descriptor.ShaderRegister				= WORLD_MATRIX_INDEX;
+	rootParameter[0].Descriptor.RegisterSpace				= 0;
 
-	D3D12_ROOT_PARAMETER rootParameter[2]{};
-	rootParameter[0].ParameterType							= D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParameter[0].DescriptorTable.pDescriptorRanges		= &descriptorRange[0];
-	rootParameter[0].DescriptorTable.NumDescriptorRanges	= 1;
-	rootParameter[0].ShaderVisibility						= D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_PIXEL;
-
-	rootParameter[1].ParameterType							= D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParameter[1].DescriptorTable.pDescriptorRanges		= &descriptorRange[1];
-	rootParameter[1].DescriptorTable.NumDescriptorRanges	= 1;
+	rootParameter[1].ParameterType							= D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_CBV;
 	rootParameter[1].ShaderVisibility						= D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_VERTEX;
+	rootParameter[1].Descriptor.ShaderRegister				= VIEW_MATRIX_INDEX;
+	rootParameter[1].Descriptor.RegisterSpace				= 0;
+
+	rootParameter[2].ParameterType							= D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_CBV;
+	rootParameter[2].ShaderVisibility						= D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_VERTEX;
+	rootParameter[2].Descriptor.ShaderRegister				= PROJECTION_MATRIX_INDEX;
+	rootParameter[2].Descriptor.RegisterSpace				= 0;
+
+	rootParameter[3].ParameterType							= D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParameter[3].DescriptorTable.pDescriptorRanges		= &descriptorRange;
+	rootParameter[3].DescriptorTable.NumDescriptorRanges	= 1;
+	rootParameter[3].ShaderVisibility						= D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_PIXEL;
 
 	rootSignatureDesc.pParameters	= rootParameter;
-	rootSignatureDesc.NumParameters = 2;
+	rootSignatureDesc.NumParameters = 4;
 
 	// サンプラーの設定
 	D3D12_STATIC_SAMPLER_DESC samplerDesc{};
@@ -558,66 +560,6 @@ bool Graphics::CreateGraphicsPipeline()
 	return true;
 }
 
-// 定数バッファの生成処理
-bool Graphics::CreateConstantBuffers()
-{
-	D3D12_HEAP_PROPERTIES heapProperties{};
-	heapProperties.Type					= D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_UPLOAD;					// mapができる設定
-	heapProperties.CPUPageProperty		= D3D12_CPU_PAGE_PROPERTY::D3D12_CPU_PAGE_PROPERTY_UNKNOWN; 
-	heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL::D3D12_MEMORY_POOL_UNKNOWN;				
-
-	D3D12_RESOURCE_DESC resourceDesc{};
-	resourceDesc.Dimension			= D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_BUFFER;
-	resourceDesc.Width				= (sizeof(ConstantBuffer) + 0xff) & ~0xff;
-	resourceDesc.Height				= 1;
-	resourceDesc.DepthOrArraySize	= 1;
-	resourceDesc.MipLevels			= 1;
-	resourceDesc.Format				= DXGI_FORMAT::DXGI_FORMAT_UNKNOWN;
-	resourceDesc.SampleDesc.Count	= 1;
-	resourceDesc.Flags				= D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_NONE;
-	resourceDesc.Layout				= D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-	// 定数バッファ
-	HRESULT ret{};
-	ret = m_device->CreateCommittedResource(
-		&heapProperties,
-		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
-		&resourceDesc,
-		D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		__uuidof(ID3D12Resource),
-		(void**)m_worldViewProjectionBuffer.GetAddressOf()
-	);
-	if (FAILED(ret))
-	{// 定数バッファの生成に失敗
-		return false;
-	}
-
-	// ヒープを作成
-	D3D12_DESCRIPTOR_HEAP_DESC heapDesc{};
-	heapDesc.Type			= D3D12_DESCRIPTOR_HEAP_TYPE::D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	heapDesc.Flags			= D3D12_DESCRIPTOR_HEAP_FLAGS::D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	heapDesc.NodeMask		= 0;
-	heapDesc.NumDescriptors = 1;
-	ret = m_device->CreateDescriptorHeap(
-		&heapDesc,
-		__uuidof(ID3D12DescriptorHeap),
-		(void**)m_worldViewProjectionBufferHeap.GetAddressOf()
-	);
-	if (FAILED(ret))
-	{// ヒープの生成に失敗
-		return false;
-	}
-
-	// 定数バッファのビュー作成
-	D3D12_CONSTANT_BUFFER_VIEW_DESC viewDesc{};
-	viewDesc.BufferLocation = m_worldViewProjectionBuffer->GetGPUVirtualAddress();
-	viewDesc.SizeInBytes	= UINT(m_worldViewProjectionBuffer->GetDesc().Width);
-	m_device->CreateConstantBufferView(&viewDesc, m_worldViewProjectionBufferHeap->GetCPUDescriptorHandleForHeapStart());
-
-	return true;
-}
-
 // リソースバリアの設定
 void Graphics::SetResourceBarrier(const UINT index, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after)
 {
@@ -646,34 +588,4 @@ void Graphics::SetScissorRect(const int width, const int height)
 	m_scissorRect.top		= 0;
 	m_scissorRect.right		= m_scissorRect.left + width;
 	m_scissorRect.bottom	= m_scissorRect.top + height;
-}
-
-// 定数バッファのリソース更新
-bool Graphics::UpdateConstantBufferResouce(const int index, const XMMATRIX mat)
-{
-	HRESULT ret{};
-
-	ConstantBuffer* mapMatrix;
-	ret = m_worldViewProjectionBuffer->Map(0, nullptr, (void**)&mapMatrix);
-	if (FAILED(ret))
-	{
-		return false;
-	}
-
-	// 
-	XMMATRIX transposeMat = XMMatrixTranspose(mat);
-
-	// データ更新
-	switch (index)
-	{
-	case WORLD_MATRIX_INDEX		: mapMatrix->worldMatrix		= transposeMat;	break;
-	case VIEW_MATRIX_INDEX		: mapMatrix->viewMatrix			= transposeMat;	break;
-	case PROJECTION_MATRIX_INDEX: mapMatrix->projectionMatrix	= transposeMat;	break;
-	}
-
-	m_worldViewProjectionBuffer->Unmap(0, nullptr);
-
-	m_commandList->SetDescriptorHeaps(1, m_worldViewProjectionBufferHeap.GetAddressOf());
-	m_commandList->SetGraphicsRootDescriptorTable(1, m_worldViewProjectionBufferHeap->GetGPUDescriptorHandleForHeapStart());
-	return true;
 }

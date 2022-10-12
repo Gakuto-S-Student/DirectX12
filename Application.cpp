@@ -36,7 +36,7 @@ Application::Application(const int width, const int height, HINSTANCE hInstance)
 	:ApplicationWindow(width, height, L"App", L"Sample", hInstance, WndProc),
 	m_ScreenW(width),
 	m_ScreenH(height),
-	m_cube(nullptr)
+	m_cubes()
 {
 }
 
@@ -48,8 +48,15 @@ bool Application::Init()
 		return false;
 	}
 
-	m_cube = new GraphicsCube();
-	m_cube->Init();
+	m_cubes.resize(2);
+	for (auto& cube : m_cubes)
+	{
+		cube = new GraphicsCube();
+		cube->Init();
+	}
+	
+	m_cubes[0]->SetPosition( 2, 0, 0);
+	m_cubes[1]->SetPosition(-2, 0, 0);
 
 	return true;
 }
@@ -57,8 +64,11 @@ bool Application::Init()
 // I—¹ˆ—
 void Application::Uninit()
 {
-	m_cube->Uninit();
-	delete m_cube;
+	for (auto& cube : m_cubes)
+	{
+		cube->Uninit();
+		delete cube;
+	}
 
 	Graphics::Get()->Uninit();
 }
@@ -73,9 +83,12 @@ void Application::Draw()
 {
 	Graphics::Get()->Clear();
 
-	GraphicsCamera::Set3D();
+	GraphicsCamera::Get()->Set3D();
 
-	m_cube->Draw();
+	for (auto& cube : m_cubes)
+	{
+		cube->Draw();
+	}
 
 	Graphics::Get()->Present();
 }

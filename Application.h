@@ -4,6 +4,8 @@
 // Copyright (C) 2022 Silicon Studio Co., Ltd. All rights reserved.
 //==============================================================================
 #pragma once
+#include <vector>
+
 #include "Application_Window.h"
 
 
@@ -68,7 +70,7 @@ public:
 
 private:
 	//--------------------------------------------------------------------------
-	GraphicsCube* m_cube;
+	std::vector<GraphicsCube*> m_cubes;
 	//--------------------------------------------------------------------------
 
 	/// <summary>

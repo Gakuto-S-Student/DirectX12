@@ -29,13 +29,29 @@ public:
 	//---------------------------------------------
 	void Draw();
 
+	void SetPosition(float x, float y, float z)
+	{
+		m_translate.x = x;
+		m_translate.y = y;
+		m_translate.z = z;
+	}
 
 private:
 	//--------------------------------------------------------------------------
 	Microsoft::WRL::ComPtr<ID3D12Resource>			m_vertexBuffer;
-	D3D12_VERTEX_BUFFER_VIEW						m_vertexBufferView;
 	Microsoft::WRL::ComPtr<ID3D12Resource>			m_textureBuffer;
+	Microsoft::WRL::ComPtr<ID3D12Resource>			m_worldMatrixBuffer;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>	m_textureHeap;
+	//--------------------------------------------------------------------------
+
+	/// <summary>
+	/// ID3D12Resource		m_vertexBuffer;
+	/// </summary>
+
+	//--------------------------------------------------------------------------
+	DirectX::XMFLOAT3 m_translate;
+	DirectX::XMFLOAT3 m_rotate;
+	DirectX::XMFLOAT3 m_scale;
 	//--------------------------------------------------------------------------
 
 	/// <summary>

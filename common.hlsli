@@ -9,10 +9,16 @@ struct VS_INPUT
     float2 TexCoord : TEXCOORD;
 };
 
-cbuffer g_worldViewProjection : register(b0)
+cbuffer g_worldBuffer : register(b0)
 {
     matrix world;
+};
+cbuffer g_viewBuffer : register(b1)
+{
     matrix view;
+};
+cbuffer g_projectionBuffer : register(b2)
+{
     matrix projection;
 };
 

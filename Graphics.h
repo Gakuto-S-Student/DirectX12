@@ -74,37 +74,40 @@ public:
 	ID3D12GraphicsCommandList* Context();
 
 	//---------------------------------------------
-	/// モデル行列を設定する
+	/// world行列の設定 
 	/// 
 	/// \param[in] ( world )
 	/// 
 	/// \return	none
 	//---------------------------------------------
-	void SetWorldMatrix(
-		/* [in] */  const DirectX::XMMATRIX world
-	);
+	void SetWorldMatrix(ID3D12Resource* world);
 
 	//---------------------------------------------
-	/// カメラ行列を設定する
+	/// view行列の設定 
 	/// 
 	/// \param[in] ( view )
 	/// 
 	/// \return	none
 	//---------------------------------------------
-	void SetViewMatrix(
-		/* [in] */  const DirectX::XMMATRIX view
-	);
+	void SetViewMatrix(ID3D12Resource* view);
 
 	//---------------------------------------------
-	/// 射影行列を設定する
+	/// projection行列の設定 
+	///
+	/// \param[in] ( projection ) 
+	///  
+	/// \return	none
+	//---------------------------------------------
+	void SetProjectionMatrix(ID3D12Resource* projection);
+
+	//---------------------------------------------
+	/// projection行列の設定 
 	/// 
-	/// \param[in] ( projection )
+	/// \param[in] ( textureHeap )
 	/// 
 	/// \return	none
 	//---------------------------------------------
-	void SetProjectionMatrix(
-		/* [in] */  const DirectX::XMMATRIX proj
-	);
+	void SetTexture(ID3D12DescriptorHeap* textureHeap);
 
 private:
 	//---------------------------------------------
@@ -157,13 +160,6 @@ private:
 	bool CreateGraphicsPipeline();
 
 	//---------------------------------------------
-	/// 定数バッファの生成
-	/// 
-	/// \return	true 成功
-	//---------------------------------------------
-	bool CreateConstantBuffers();
-
-	//---------------------------------------------
 	/// リソースバリアの設定
 	/// 
 	/// \param[in] ( index )
@@ -202,18 +198,6 @@ private:
 	void SetScissorRect(
 		/* [in] */  const int width,
 		/* [in] */  const int height
-	);
-
-	//---------------------------------------------
-	/// 定数バッファの行列を更新する
-	/// 
-	/// \param[in] ( mat )
-	/// 
-	/// \return	true 成功
-	//---------------------------------------------
-	bool UpdateConstantBufferResouce(
-		/* [in] */  const int index,
- 		/* [in] */  const DirectX::XMMATRIX mat
 	);
 
 	//--------------------------------------------------------------------------

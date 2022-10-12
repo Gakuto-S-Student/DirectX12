@@ -72,8 +72,6 @@ const Vertex3D g_cubeMeta[]
 // 初期化処理
 void GraphicsCube::Init()
 {
-	
-
 	D3D12_HEAP_PROPERTIES heapProperties{};
 	heapProperties.Type					= D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_UPLOAD;					// mapができる設定
 	heapProperties.CPUPageProperty		= D3D12_CPU_PAGE_PROPERTY::D3D12_CPU_PAGE_PROPERTY_UNKNOWN; 
@@ -105,17 +103,32 @@ void GraphicsCube::Init()
 		return;
 	}
 
+	// 定数バッファの生成
+	resourceDesc.Width = (sizeof(XMMATRIX) + 0xff) & ~0xff;
+	ret = Graphics::Get()->Device()->CreateCommittedResource(
+		&heapProperties,
+		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
+		&resourceDesc,
+		D3D12_RESOURCE_STATES::D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		__uuidof(ID3D12Resource),
+		(void**)m_worldMatrixBuffer.GetAddressOf()
+	);
+	if (FAILED(ret))
+	{// 頂点バッファの生成に失敗
+		return;
+	}
+
 	Vertex3D* vertexMap;
 	m_vertexBuffer->Map(0, nullptr, (void**)&vertexMap);
 	std::copy(std::begin(g_cubeMeta), std::end(g_cubeMeta), vertexMap);
 	m_vertexBuffer->Unmap(0, nullptr);
 
-	m_vertexBufferView.BufferLocation	= m_vertexBuffer->GetGPUVirtualAddress();
-	m_vertexBufferView.SizeInBytes		= sizeof(g_cubeMeta);
-	m_vertexBufferView.StrideInBytes	= sizeof(g_cubeMeta[0]);
-
 	// テクスチャの読み込み
 	GraphicsTexture::CreateTexture(m_textureBuffer.GetAddressOf(), m_textureHeap.GetAddressOf());
+
+
+	m_scale = XMFLOAT3(1, 1, 1);
 }
 
 // 終了処理
@@ -126,17 +139,36 @@ void GraphicsCube::Uninit()
 // 描画処理
 void GraphicsCube::Draw()
 {
+	D3D12_VERTEX_BUFFER_VIEW bufferView{};
+	bufferView.BufferLocation	= m_vertexBuffer->GetGPUVirtualAddress();
+	bufferView.SizeInBytes		= sizeof(g_cubeMeta);
+	bufferView.StrideInBytes	= sizeof(g_cubeMeta[0]);
+
 	static float angle;
 	angle += 0.01f;
+	
+	m_rotate.x = angle;
+	m_rotate.y = angle;
 
-	Graphics::Get()->Context()->SetDescriptorHeaps(1, m_textureHeap.GetAddressOf());
-	Graphics::Get()->Context()->SetGraphicsRootDescriptorTable(0, m_textureHeap->GetGPUDescriptorHandleForHeapStart());
+	// テクスチャの設定
+	Graphics::Get()->SetTexture(m_textureHeap.Get());
 
-	XMMATRIX world = XMMatrixRotationY(angle);
+	// モデルの行列を設定
+	XMMATRIX trl, rot, scl;
+	trl = XMMatrixTranslationFromVector(XMLoadFloat3(&m_translate));
+	rot = XMMatrixRotationRollPitchYawFromVector(XMLoadFloat3(&m_rotate));
+	scl = XMMatrixScalingFromVector(XMLoadFloat3(&m_scale));
 
-	Graphics::Get()->SetWorldMatrix(world);
+	XMMATRIX world = scl * rot * trl;
+	world = XMMatrixTranspose(world);
+	
+	XMMATRIX* worldBuffer;
+	m_worldMatrixBuffer->Map(0, nullptr, (void**)&worldBuffer);
+	*worldBuffer = world;
+	m_worldMatrixBuffer->Unmap(0, nullptr);
+	Graphics::Get()->SetWorldMatrix(m_worldMatrixBuffer.Get());
 
 	Graphics::Get()->Context()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY::D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	Graphics::Get()->Context()->IASetVertexBuffers(0, 1, &m_vertexBufferView);
+	Graphics::Get()->Context()->IASetVertexBuffers(0, 1, &bufferView);
 	Graphics::Get()->Context()->DrawInstanced(ARRAYSIZE(g_cubeMeta), 1, 0, 0);
 }
