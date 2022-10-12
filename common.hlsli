@@ -11,7 +11,9 @@ struct VS_INPUT
 
 cbuffer g_worldViewProjection : register(b0)
 {
-    matrix wvp;
+    matrix world;
+    matrix view;
+    matrix projection;
 };
 
 

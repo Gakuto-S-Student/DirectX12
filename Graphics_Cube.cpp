@@ -134,19 +134,7 @@ void GraphicsCube::Draw()
 
 	XMMATRIX world = XMMatrixRotationY(angle);
 
-	XMFLOAT3 eye(0, 5, -5);
-	XMFLOAT3 target(0, 0, 0);
-	XMFLOAT3 up(0, 1, 0);
-
-	XMMATRIX view = XMMatrixLookAtLH(XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
-	XMMATRIX projection = XMMatrixPerspectiveFovLH(
-		XM_PIDIV2,
-		1280 / 780,
-		0.1f,
-		100.0f
-	);
-
-	Graphics::Get()->SetWorldViewProjection(world * view * projection);
+	Graphics::Get()->SetWorldMatrix(world);
 
 	Graphics::Get()->Context()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY::D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	Graphics::Get()->Context()->IASetVertexBuffers(0, 1, &m_vertexBufferView);

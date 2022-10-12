@@ -9,7 +9,10 @@ PS_INPUT main(VS_INPUT input)
 {
     PS_INPUT output;
     
-    output.Position = mul(wvp, input.Position);
+    matrix wvp = mul(world, view);
+    wvp = mul(wvp, projection);
+    
+    output.Position = mul(input.Position, wvp);
     output.TexCoord = input.TexCoord;
     
 	return output;

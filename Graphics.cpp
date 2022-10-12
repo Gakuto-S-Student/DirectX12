@@ -10,6 +10,19 @@
 using namespace Microsoft::WRL;
 using namespace DirectX;
 
+// マクロ定義
+#define WORLD_MATRIX_INDEX		0	// ワールド行列設定用インデックス
+#define VIEW_MATRIX_INDEX		1	// カメラ行列設定用インデックス
+#define PROJECTION_MATRIX_INDEX 2	// 射影行列設定用インデックス
+
+// 定数バッファの構造体
+struct ConstantBuffer
+{
+	XMMATRIX worldMatrix;
+	XMMATRIX viewMatrix;
+	XMMATRIX projectionMatrix;
+};
+
 
 // インスタンスの取得
 Graphics* Graphics::Get()
@@ -152,25 +165,22 @@ ID3D12GraphicsCommandList* Graphics::Context()
 	return m_commandList.Get();
 }
 
-// 定数バッファの値更新
-void Graphics::SetWorldViewProjection(const DirectX::XMMATRIX wvp)
+// 定数バッファの値更新(World)
+void Graphics::SetWorldMatrix(const DirectX::XMMATRIX world)
 {
-	HRESULT ret{};
+	this->UpdateConstantBufferResouce(WORLD_MATRIX_INDEX, world);
+}
 
-	XMMATRIX* mapMatrix;
-	ret = m_worldViewProjectionBuffer->Map(0, nullptr, (void**)&mapMatrix);
-	if (FAILED(ret))
-	{
-		return;
-	}
+// 定数バッファの値更新(View)
+void Graphics::SetViewMatrix(const DirectX::XMMATRIX view)
+{
+	this->UpdateConstantBufferResouce(VIEW_MATRIX_INDEX, view);
+}
 
-	// データ更新
-	*mapMatrix = wvp;
-
-	m_worldViewProjectionBuffer->Unmap(0, nullptr);
-
-	m_commandList->SetDescriptorHeaps(1, m_worldViewProjectionBufferHeap.GetAddressOf());
-	m_commandList->SetGraphicsRootDescriptorTable(1, m_worldViewProjectionBufferHeap->GetGPUDescriptorHandleForHeapStart());
+// 定数バッファの値更新(Projection)
+void Graphics::SetProjectionMatrix(const DirectX::XMMATRIX proj)
+{
+	this->UpdateConstantBufferResouce(PROJECTION_MATRIX_INDEX, proj);
 }
 
 // デバイスとスワップチェインの生成
@@ -558,7 +568,7 @@ bool Graphics::CreateConstantBuffers()
 
 	D3D12_RESOURCE_DESC resourceDesc{};
 	resourceDesc.Dimension			= D3D12_RESOURCE_DIMENSION::D3D12_RESOURCE_DIMENSION_BUFFER;
-	resourceDesc.Width				= (sizeof(XMMATRIX) + 0xff) & ~0xff;
+	resourceDesc.Width				= (sizeof(ConstantBuffer) + 0xff) & ~0xff;
 	resourceDesc.Height				= 1;
 	resourceDesc.DepthOrArraySize	= 1;
 	resourceDesc.MipLevels			= 1;
@@ -567,6 +577,7 @@ bool Graphics::CreateConstantBuffers()
 	resourceDesc.Flags				= D3D12_RESOURCE_FLAGS::D3D12_RESOURCE_FLAG_NONE;
 	resourceDesc.Layout				= D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
+	// 定数バッファ
 	HRESULT ret{};
 	ret = m_device->CreateCommittedResource(
 		&heapProperties,
@@ -635,4 +646,34 @@ void Graphics::SetScissorRect(const int width, const int height)
 	m_scissorRect.top		= 0;
 	m_scissorRect.right		= m_scissorRect.left + width;
 	m_scissorRect.bottom	= m_scissorRect.top + height;
+}
+
+// 定数バッファのリソース更新
+bool Graphics::UpdateConstantBufferResouce(const int index, const XMMATRIX mat)
+{
+	HRESULT ret{};
+
+	ConstantBuffer* mapMatrix;
+	ret = m_worldViewProjectionBuffer->Map(0, nullptr, (void**)&mapMatrix);
+	if (FAILED(ret))
+	{
+		return false;
+	}
+
+	// 
+	XMMATRIX transposeMat = XMMatrixTranspose(mat);
+
+	// データ更新
+	switch (index)
+	{
+	case WORLD_MATRIX_INDEX		: mapMatrix->worldMatrix		= transposeMat;	break;
+	case VIEW_MATRIX_INDEX		: mapMatrix->viewMatrix			= transposeMat;	break;
+	case PROJECTION_MATRIX_INDEX: mapMatrix->projectionMatrix	= transposeMat;	break;
+	}
+
+	m_worldViewProjectionBuffer->Unmap(0, nullptr);
+
+	m_commandList->SetDescriptorHeaps(1, m_worldViewProjectionBufferHeap.GetAddressOf());
+	m_commandList->SetGraphicsRootDescriptorTable(1, m_worldViewProjectionBufferHeap->GetGPUDescriptorHandleForHeapStart());
+	return true;
 }

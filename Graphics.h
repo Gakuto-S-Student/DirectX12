@@ -74,11 +74,37 @@ public:
 	ID3D12GraphicsCommandList* Context();
 
 	//---------------------------------------------
-	/// モデルビュー行列を設定する
+	/// モデル行列を設定する
+	/// 
+	/// \param[in] ( world )
 	/// 
 	/// \return	none
 	//---------------------------------------------
-	void SetWorldViewProjection(const DirectX::XMMATRIX wvp);
+	void SetWorldMatrix(
+		/* [in] */  const DirectX::XMMATRIX world
+	);
+
+	//---------------------------------------------
+	/// カメラ行列を設定する
+	/// 
+	/// \param[in] ( view )
+	/// 
+	/// \return	none
+	//---------------------------------------------
+	void SetViewMatrix(
+		/* [in] */  const DirectX::XMMATRIX view
+	);
+
+	//---------------------------------------------
+	/// 射影行列を設定する
+	/// 
+	/// \param[in] ( projection )
+	/// 
+	/// \return	none
+	//---------------------------------------------
+	void SetProjectionMatrix(
+		/* [in] */  const DirectX::XMMATRIX proj
+	);
 
 private:
 	//---------------------------------------------
@@ -176,6 +202,18 @@ private:
 	void SetScissorRect(
 		/* [in] */  const int width,
 		/* [in] */  const int height
+	);
+
+	//---------------------------------------------
+	/// 定数バッファの行列を更新する
+	/// 
+	/// \param[in] ( mat )
+	/// 
+	/// \return	true 成功
+	//---------------------------------------------
+	bool UpdateConstantBufferResouce(
+		/* [in] */  const int index,
+ 		/* [in] */  const DirectX::XMMATRIX mat
 	);
 
 	//--------------------------------------------------------------------------

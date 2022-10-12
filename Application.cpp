@@ -5,6 +5,7 @@
 //==============================================================================
 #include "Graphics.h"
 #include "Graphics_Cube.h"
+#include "Graphics_Camera.h"
 
 #include "Application.h"
 
@@ -71,6 +72,8 @@ void Application::Update()
 void Application::Draw()
 {
 	Graphics::Get()->Clear();
+
+	GraphicsCamera::Set3D();
 
 	m_cube->Draw();
 
