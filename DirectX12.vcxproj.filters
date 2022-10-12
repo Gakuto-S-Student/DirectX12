@@ -17,6 +17,9 @@
     <ClCompile Include="Graphics_Shader.cpp">
       <Filter>Graphics\Shader</Filter>
     </ClCompile>
+    <ClCompile Include="Graphics_Camera.cpp">
+      <Filter>Graphics\Camera</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Application">
@@ -37,6 +40,9 @@
     <Filter Include="Graphics\Shader\hlsl">
       <UniqueIdentifier>{3f05300e-7888-4ec4-a9d5-4189af445874}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Graphics\Camera">
+      <UniqueIdentifier>{7ae501c9-3cda-44b2-8c70-7f7c0e71491d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -54,6 +60,9 @@
     <ClInclude Include="Graphics_Shader.h">
       <Filter>Graphics\Shader</Filter>
     </ClInclude>
+    <ClInclude Include="Graphics_Camera.h">
+      <Filter>Graphics\Camera</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="vertexShader.hlsl">
@@ -62,5 +71,10 @@
     <FxCompile Include="pixelShader.hlsl">
       <Filter>Graphics\Shader\hlsl</Filter>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="common.hlsli">
+      <Filter>Graphics\Shader\hlsl</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -1,4 +1,14 @@
-float4 main( float4 pos : POSITION ) : SV_POSITION
+#include "common.hlsli"
+
+PS_INPUT main( VS_INPUT input )
 {
-	return pos;
+    PS_INPUT output;
+    
+    matrix wvp = mul(model, view);
+    wvp = mul(wvp, projection);
+    
+    output.Position = mul(input.Position, wvp);
+    output.TexCoord = input.TexCoord;
+    
+    return output;
 }

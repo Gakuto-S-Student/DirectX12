@@ -5,6 +5,7 @@
 //==============================================================================
 #include <vector>
 #include "Graphics_Shader.h"
+#include "Graphics_Camera.h"
 
 #include "Graphics.h"
 using namespace Microsoft::WRL;
@@ -41,6 +42,11 @@ bool Graphics::Init(const int width, const int height, const HWND hWnd)
 		return false;
 	}
 
+	if (!GraphicsCamera::Get()->Init())
+	{// カメラの初期化処理失敗
+		return false;
+	}
+
 	this->SetViewport(width, height);
 	this->SetScissorRect(width, height);
 
@@ -50,6 +56,7 @@ bool Graphics::Init(const int width, const int height, const HWND hWnd)
 // 終了処理
 void Graphics::Uninit()
 {
+	GraphicsCamera::Get()->Uninit();
 }
 
 // 画面クリア
@@ -299,6 +306,7 @@ bool Graphics::CreateGraphicsPipeline()
 	D3D12_INPUT_ELEMENT_DESC inputLayout[]
 	{
 		{"POSITION", 0, DXGI_FORMAT::DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION::D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+		{"TEXCOORD", 0, DXGI_FORMAT::DXGI_FORMAT_R32G32_FLOAT,    0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION::D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 	};
 
 	// シェーダデータの設定
@@ -355,6 +363,26 @@ bool Graphics::CreateGraphicsPipeline()
 
 	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc{};
 	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAGS::D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+
+	// 変換行列用の定数バッファ
+	D3D12_ROOT_PARAMETER rootParameter[3]{};
+	rootParameter[0].ParameterType				= D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_CBV;
+	rootParameter[0].ShaderVisibility			= D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_ALL;
+	rootParameter[0].Descriptor.ShaderRegister	= 0;
+	rootParameter[0].Descriptor.RegisterSpace	= 0;
+
+	rootParameter[1].ParameterType				= D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_CBV;
+	rootParameter[1].ShaderVisibility			= D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_ALL;
+	rootParameter[1].Descriptor.ShaderRegister	= 1;
+	rootParameter[1].Descriptor.RegisterSpace	= 0;
+
+	rootParameter[2].ParameterType				= D3D12_ROOT_PARAMETER_TYPE::D3D12_ROOT_PARAMETER_TYPE_CBV;
+	rootParameter[2].ShaderVisibility			= D3D12_SHADER_VISIBILITY::D3D12_SHADER_VISIBILITY_ALL;
+	rootParameter[2].Descriptor.ShaderRegister	= 2;
+	rootParameter[2].Descriptor.RegisterSpace	= 0;
+
+	rootSignatureDesc.NumParameters = 3;
+	rootSignatureDesc.pParameters = rootParameter;
 
 	HRESULT ret{};
 	ComPtr<ID3DBlob> rootSignatureBlob{};
